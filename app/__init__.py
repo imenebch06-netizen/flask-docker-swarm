@@ -12,7 +12,7 @@ def create_app():
 
     app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv(
         'DATABASE_URL',
-        'postgresql+psycopg2://postgres:postgres@localhost:5432/cvdb'
+        'postgresql://user:password@postgres:5432/appdb'
     )
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['PDF_DIRECTORY'] = os.getenv('PDF_DIRECTORY', '/shared_pdf')

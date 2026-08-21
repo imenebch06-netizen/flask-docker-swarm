@@ -1,118 +1,47 @@
 services:
-  frontend:
-    build:
-      context: ./frontend_app
-      dockerfile: Dockerfile
-    image: expresspdf-frontend:latest
-    ports:
-      - "${FRONTEND_PORT:-8080}:80"
-    depends_on:
-      api:
-        condition: service_started
-    restart: unless-stopped
-
-  api:
-    image: cv-api:latest
-    build:
-      context: .
-      dockerfile: Dockerfile
-    environment:
-      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg2://postgres:postgres@postgres:5432/cvdb}
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
-      PDF_DIRECTORY: ${PDF_DIRECTORY:-/shared_pdf}
-    ports:
-      - "${API_PORT:-5000}:5000"
-    volumes:
-      - pdf_data:/shared_pdf:ro
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    restart: unless-stopped
-    deploy:
-      replicas: 1
-      restart_policy:
-        condition: on-failure
-
-  worker:
-    image: cv-worker:latest
-    build:
-      context: ./worker_service
-      dockerfile: Dockerfile
-    environment:
-      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg2://postgres:postgres@postgres:5432/cvdb}
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
-      PDF_DIRECTORY: ${PDF_DIRECTORY:-/shared_pdf}
-    volumes:
-      - pdf_data:/shared_pdf
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    restart: unless-stopped
-    deploy:
-      replicas: 2
-      restart_policy:
-        condition: on-failure
-
-  metrics:
-    image: cv-metrics:latest
-    build:
-      context: ./metrics_app
-      dockerfile: Dockerfile
-    environment:
-      API_URL: ${API_URL:-http://api:5000}
-    ports:
-      - "${METRICS_PORT:-5001}:5001"
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5001/health')"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    depends_on:
-      api:
-        condition: service_started
-    restart: unless-stopped
-    deploy:
-      replicas: 1
-      restart_policy:
-        condition: on-failure
-
   postgres:
-    image: postgres:16-alpine
+    image: postgres:15
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-cvdb}
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d cvdb"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-    restart: unless-stopped
+      POSTGRES_DB: appdb
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
 
   redis:
-    image: redis:7-alpine
-    command: redis-server --appendonly yes
+    image: redis:alpine
+
+  api:
+    build: .
+    ports:
+      - "5000:5000"
     volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-    restart: unless-stopped
+      - pdf_data:/shared_pdf
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=postgresql://user:password@postgres:5432/appdb
+      - PDF_DIRECTORY=/shared_pdf
+    depends_on:
+      - postgres
+      - redis
+
+  worker:
+    build: .
+    command: celery -A app.celery_utils.celery_app worker --loglevel=info
+    volumes:
+      - pdf_data:/shared_pdf
+    environment:
+      - PDF_DIRECTORY=/shared_pdf
+      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=postgresql://user:password@postgres:5432/appdb
+    depends_on:
+      - redis
+      - postgres
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
 
 volumes:
-  postgres_data:
-  redis_data:
   pdf_data:

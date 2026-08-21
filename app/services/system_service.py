@@ -1,6 +1,12 @@
 import socket
+from sqlalchemy.exc import IntegrityError
 from app.models.user import db, User
 from app.celery_utils import celery_app
+
+
+class DuplicateEmailError(Exception):
+    """Levée lorsque l'email fourni est déjà utilisé par un autre candidat."""
+
 
 class SystemService:
     @staticmethod
@@ -26,7 +32,14 @@ class SystemService:
             processed_by_container=container_id
         )
         db.session.add(user)
-        db.session.commit()
+        try:
+            db.session.commit()
+        except IntegrityError:
+            # L'email est contraint unique en base : sans ce filet, une
+            # double soumission (ou un doublon) faisait planter la requête
+            # avec une erreur 500 brute au lieu d'un message exploitable.
+            db.session.rollback()
+            raise DuplicateEmailError(data.get('email'))
 
         celery_app.send_task("compile_pdf_task", args=[user.id, user.to_dict()])
 

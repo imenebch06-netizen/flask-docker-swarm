@@ -85,8 +85,8 @@ Documentation Swagger : `http://localhost:5000/apidocs/`
 
 Le fichier `docker-stack.yml` décrit le déploiement Swarm, mais `docker compose up` ne crée pas de services Swarm. Il faut d'abord publier les images sur un registre accessible aux nœuds, puis déployer explicitement la stack.
 
-Les images publiées sont `itsimenewhowasborntodie/flask-swarm-api:v4`, `itsimenewhowasborntodie/flask-swarm-worker:v2` et `itsimenewhowasborntodie/flask-metrics-api:v2`.
-L'image frontend est `itsimenewhowasborntodie/expresspdf-frontend:v3` et le worker PDF est `itsimenewhowasborntodie/flask-swarm-worker:v3`.
+Les images publiées sont `itsimenewhowasborntodie/flask-swarm-api:v4`, `itsimenewhowasborntodie/flask-swarm-worker:v3` et `itsimenewhowasborntodie/flask-metrics-api:v2`.
+L'image frontend est `itsimenewhowasborntodie/expresspdf-frontend:v3`.
 
 ```powershell
 docker build -t cv-api:latest .

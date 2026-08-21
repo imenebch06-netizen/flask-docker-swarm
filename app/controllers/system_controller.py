@@ -1,6 +1,6 @@
 import os
 from flask import Blueprint, current_app, jsonify, request, send_from_directory
-from app.services.system_service import SystemService
+from app.services.system_service import DuplicateEmailError, SystemService
 
 system_bp = Blueprint('system', __name__)
 
@@ -27,6 +27,10 @@ def generate_cv():
     responses:
       202:
         description: Traitement asynchrone lancé avec succès
+      400:
+        description: Champ obligatoire manquant
+      409:
+        description: Email déjà utilisé par un autre candidat
     """
     payload = request.get_json() or {}
     if not payload.get('email'):
@@ -34,7 +38,11 @@ def generate_cv():
     if not (payload.get('first_name') or payload.get('username')):
       return jsonify({"error": "Le champ first_name est requis"}), 400
 
-    user_data = SystemService.create_cv_request(payload)
+    try:
+        user_data = SystemService.create_cv_request(payload)
+    except DuplicateEmailError:
+        return jsonify({"error": "Cet email est déjà utilisé par un autre candidat"}), 409
+
     return jsonify({
         "message": "Génération de votre PDF en cours...",
         "user": user_data
