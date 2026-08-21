@@ -1,0 +1,98 @@
+services:
+  frontend:
+    image: itsimenewhowasborntodie/expresspdf-frontend:v3
+    ports:
+      - target: 80
+        published: 80
+        protocol: tcp
+        mode: ingress
+    networks:
+      - backend
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+
+  api:
+    image: itsimenewhowasborntodie/flask-swarm-api:v4
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg2://postgres:postgres@postgres:5432/cvdb}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      PDF_DIRECTORY: ${PDF_DIRECTORY:-/shared_pdf}
+    ports:
+      - target: 5000
+        published: 5000
+        protocol: tcp
+        mode: ingress
+    volumes:
+      - pdf_data:/shared_pdf:ro
+    networks:
+      - backend
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: on-failure
+
+  worker:
+    image: itsimenewhowasborntodie/flask-swarm-worker:v3
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg2://postgres:postgres@postgres:5432/cvdb}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      PDF_DIRECTORY: ${PDF_DIRECTORY:-/shared_pdf}
+    volumes:
+      - pdf_data:/shared_pdf
+    networks:
+      - backend
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: on-failure
+
+  metrics:
+    image: itsimenewhowasborntodie/flask-metrics-api:v2
+    environment:
+      API_URL: ${API_URL:-http://api:5000}
+    ports:
+      - target: 5001
+        published: 5001
+        protocol: tcp
+        mode: ingress
+    networks:
+      - backend
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-cvdb}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - backend
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - backend
+
+networks:
+  backend:
+    driver: overlay
+    attachable: true
+
+volumes:
+  postgres_data:
+  redis_data:
+  pdf_data:

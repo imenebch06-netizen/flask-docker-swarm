@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="ExpressPDF, générateur de CV PDF asynchrone.">
+    <title>ExpressPDF | Générateur de CV</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --ink: #17212b;
+            --muted: #66727e;
+            --paper: #f5f7f4;
+            --panel: rgba(255, 255, 255, 0.88);
+            --line: #dce4df;
+            --accent: #0b7a75;
+            --accent-dark: #07544f;
+            --warm: #e9b949;
+            --shadow: 0 22px 60px rgba(23, 33, 43, 0.12);
+        }
+
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            color: var(--ink);
+            background:
+                radial-gradient(circle at 10% 0%, rgba(233, 185, 73, 0.22), transparent 28rem),
+                radial-gradient(circle at 100% 100%, rgba(11, 122, 117, 0.18), transparent 30rem),
+                var(--paper);
+            font-family: "DM Sans", sans-serif;
+        }
+
+        main { width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding: 38px 0 56px; }
+        .topbar { display: flex; justify-content: space-between; align-items: center; gap: 20px; margin-bottom: 42px; }
+        .brand { display: flex; align-items: center; gap: 12px; font: 700 1.15rem "Space Grotesk", sans-serif; letter-spacing: 0; }
+        .brand-mark { display: grid; place-items: center; width: 38px; height: 38px; color: white; background: var(--accent); border-radius: 10px; box-shadow: 4px 4px 0 var(--warm); }
+        .topbar-nav { display: flex; gap: 18px; }
+        .topbar a { color: var(--muted); text-decoration: none; font-size: .9rem; }
+        .topbar a:hover { color: var(--accent-dark); }
+        .hero { display: grid; grid-template-columns: 1fr .78fr; gap: 48px; align-items: end; margin-bottom: 34px; }
+        h1, h2 { font-family: "Space Grotesk", sans-serif; letter-spacing: 0; }
+        h1 { max-width: 700px; margin: 0 0 18px; font-size: clamp(2.6rem, 6vw, 5.8rem); line-height: .94; }
+        .hero p { max-width: 580px; margin: 0; color: var(--muted); font-size: 1.08rem; line-height: 1.65; }
+        .hero-note { border-left: 3px solid var(--warm); padding: 8px 0 8px 18px; color: var(--muted); line-height: 1.5; }
+        .workspace { display: grid; grid-template-columns: 1.35fr .65fr; gap: 22px; align-items: start; }
+        .panel { background: var(--panel); border: 1px solid rgba(220, 228, 223, .9); border-radius: 14px; box-shadow: var(--shadow); backdrop-filter: blur(12px); }
+        form { padding: 28px; }
+        .section-heading { display: flex; justify-content: space-between; gap: 15px; align-items: baseline; margin-bottom: 22px; }
+        h2 { margin: 0; font-size: 1.25rem; }
+        .section-heading span { color: var(--muted); font-size: .8rem; }
+        .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 17px; }
+        .field { display: grid; gap: 7px; }
+        .field.full { grid-column: 1 / -1; }
+        label { font-size: .8rem; font-weight: 700; }
+        input, textarea { width: 100%; padding: 12px 13px; color: var(--ink); background: #fff; border: 1px solid var(--line); border-radius: 8px; font: inherit; outline: none; transition: border-color .2s, box-shadow .2s; }
+        textarea { resize: vertical; min-height: 115px; }
+        input:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(11, 122, 117, .12); }
+        .theme-row { display: flex; align-items: center; gap: 12px; }
+        input[type="color"] { width: 48px; height: 38px; padding: 3px; cursor: pointer; }
+        button { width: 100%; margin-top: 24px; padding: 14px 18px; color: white; background: var(--accent); border: 0; border-radius: 8px; font: 700 1rem "DM Sans", sans-serif; cursor: pointer; transition: background .2s, transform .2s; }
+        button:hover { background: var(--accent-dark); transform: translateY(-1px); }
+        button:disabled { cursor: wait; opacity: .65; transform: none; }
+        .side { display: grid; gap: 22px; }
+        .status { padding: 24px; min-height: 180px; }
+        .status[data-state="success"] { border-top: 4px solid var(--accent); }
+        .status[data-state="error"] { border-top: 4px solid #c54242; }
+        .status-label { color: var(--muted); font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
+        #statusText { margin: 14px 0 0; line-height: 1.55; }
+        #downloadLink { display: inline-block; margin-top: 18px; color: var(--accent-dark); font-weight: 700; }
+        .facts { padding: 24px; }
+        .facts p { margin: 10px 0 0; color: var(--muted); line-height: 1.55; font-size: .92rem; }
+        .dot { display: inline-block; width: 8px; height: 8px; margin-right: 8px; background: var(--warm); border-radius: 50%; }
+        @media (max-width: 800px) { .hero, .workspace { grid-template-columns: 1fr; gap: 24px; } .hero { margin-bottom: 25px; } .hero-note { max-width: 520px; } }
+        @media (max-width: 560px) { main { width: min(100% - 22px, 1120px); padding-top: 22px; } .topbar { margin-bottom: 30px; } .topbar-nav { display: none; } h1 { font-size: 3.2rem; } form, .status, .facts { padding: 20px; } .fields { grid-template-columns: 1fr; } .field.full { grid-column: auto; } }
+    </style>
+</head>
+<body>
+<main>
+    <header class="topbar">
+        <div class="brand"><span class="brand-mark">E</span> ExpressPDF</div>
+        <nav class="topbar-nav" aria-label="Administration">
+            <a href="/api/v1/users" target="_blank" rel="noreferrer">Utilisateurs</a>
+            <a href="/api/v1/admin/dashboard" target="_blank" rel="noreferrer">Télémétrie</a>
+        </nav>
+    </header>
+
+    <section class="hero">
+        <div>
+            <h1>Votre parcours, mis en page.</h1>
+            <p>Composez un CV précis, choisissez sa couleur, puis laissez le cluster Swarm produire un PDF prêt à partager.</p>
+        </div>
+        <div class="hero-note"><span class="dot"></span>Génération asynchrone par Celery, avec suivi de statut en direct.</div>
+    </section>
+
+    <section class="workspace">
+        <form id="cvForm" class="panel">
+            <div class="section-heading"><h2>Profil candidat</h2><span>Champs obligatoires marqués *</span></div>
+            <div class="fields">
+                <div class="field"><label for="first_name">Prénom *</label><input id="first_name" required placeholder="Karim"></div>
+                <div class="field"><label for="last_name">Nom *</label><input id="last_name" required placeholder="Benali"></div>
+                <div class="field"><label for="email">Email *</label><input id="email" type="email" required placeholder="karim@example.com"></div>
+                <div class="field"><label for="phone">Téléphone</label><input id="phone" placeholder="+33 6 12 34 56 78"></div>
+                <div class="field full"><label for="job_title">Titre du poste</label><input id="job_title" placeholder="Ingénieur DevOps & Cloud"></div>
+                <div class="field full"><label for="experiences">Expériences</label><textarea id="experiences" placeholder="2024-2026 : Architecte Microservices chez TechCorp"></textarea></div>
+                <div class="field full"><label for="skills">Compétences</label><input id="skills" placeholder="Python, Docker, Flask, PostgreSQL"></div>
+                <div class="field full"><label for="theme_color">Couleur du thème</label><div class="theme-row"><input id="theme_color" type="color" value="#0B7A75"><span id="themeValue">#0B7A75</span></div></div>
+            </div>
+            <button id="submitButton" type="submit">Générer mon CV PDF</button>
+        </form>
+
+        <aside class="side">
+            <div id="statusBox" class="panel status" data-state="idle">
+                <div class="status-label">État de la génération</div>
+                <p id="statusText">Votre PDF apparaîtra ici après l'envoi du formulaire.</p>
+                <a id="downloadLink" hidden target="_blank" rel="noreferrer">Télécharger le PDF</a>
+            </div>
+            <div class="panel facts"><h2>ExpressPDF</h2><p>Vos données sont enregistrées dans PostgreSQL, la tâche est distribuée par Redis et le fichier est produit par un worker dédié.</p></div>
+        </aside>
+    </section>
+</main>
+<script>
+    const form = document.getElementById('cvForm');
+    const button = document.getElementById('submitButton');
+    const statusBox = document.getElementById('statusBox');
+    const statusText = document.getElementById('statusText');
+    const downloadLink = document.getElementById('downloadLink');
+    const theme = document.getElementById('theme_color');
+    document.getElementById('themeValue').textContent = theme.value.toUpperCase();
+    theme.addEventListener('input', () => { document.getElementById('themeValue').textContent = theme.value.toUpperCase(); });
+
+    const value = (id) => document.getElementById(id).value.trim();
+    const setStatus = (message, state = 'idle') => { statusBox.dataset.state = state; statusText.textContent = message; };
+
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        button.disabled = true;
+        downloadLink.hidden = true;
+        setStatus('Envoi de la demande au cluster Swarm...');
+        const payload = {
+            first_name: value('first_name'), last_name: value('last_name'), email: value('email'),
+            phone: value('phone'), job_title: value('job_title'), experiences: value('experiences'),
+            skills: value('skills'), theme_color: theme.value
+        };
+        try {
+            const response = await fetch('/api/v1/cv', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+            const data = await response.json();
+            if (!response.ok || !data.user) throw new Error(data.error || 'La demande n’a pas été acceptée.');
+            await pollStatus(data.user.id);
+        } catch (error) {
+            setStatus(error.message || 'Impossible de joindre l’API.', 'error');
+            button.disabled = false;
+        }
+    });
+
+    async function pollStatus(userId) {
+        setStatus('Le worker Celery prépare votre PDF...');
+        for (let attempt = 0; attempt < 40; attempt += 1) {
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            try {
+                const response = await fetch(`/api/v1/cv/${userId}/status`);
+                const data = await response.json();
+                if (data.pdf_status === 'READY') {
+                    setStatus('Votre CV est prêt à être téléchargé.', 'success');
+                    downloadLink.href = `/api/v1/cv/${userId}/download`;
+                    downloadLink.hidden = false;
+                    button.disabled = false;
+                    return;
+                }
+                if (data.pdf_status === 'FAILED') throw new Error('La génération du PDF a échoué.');
+            } catch (error) {
+                setStatus(error.message || 'Erreur pendant le suivi du traitement.', 'error');
+                button.disabled = false;
+                return;
+            }
+        }
+        setStatus('Le traitement prend plus de temps que prévu. Consultez le statut depuis Swagger.', 'error');
+        button.disabled = false;
+    }
+</script>
+</body>
+</html>

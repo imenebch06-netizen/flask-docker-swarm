@@ -1,0 +1,61 @@
+@startuml
+left to right direction
+skinparam packageStyle rectangle
+
+actor "Candidat (Utilisateur)" as User
+actor "Administrateur Système" as Admin
+
+rectangle "Plateforme ExpressPDF (Docker Swarm)" {
+  package "Interface Candidat (frontend / Nginx)" {
+    usecase "Remplir le formulaire CV" as UC_Form
+    usecase "Suivre la génération" as UC_FrontStatus
+    usecase "Télécharger le PDF" as UC_FrontDownload
+  }
+
+  package "Espace Candidat (api)" {
+    usecase "Soumettre les données du CV" as UC_EditCV
+    usecase "Choisir le thème et les couleurs" as UC_Theme
+    usecase "Demander la génération PDF" as UC_GenPDF
+    usecase "Consulter le statut" as UC_Status
+    usecase "Télécharger le PDF" as UC_Download
+    usecase "Consulter la documentation Swagger" as UC_Swagger
+  }
+
+  package "Moteur d'exécution (worker / Celery)" {
+    usecase "Générer le PDF" as UC_Compile
+    usecase "Mettre à jour le statut" as UC_UpdateStatus
+  }
+
+  package "Espace Admin (metrics)" {
+    usecase "Consulter les utilisateurs" as UC_ListUsers
+    usecase "Surveiller CPU et RAM" as UC_Metrics
+  }
+
+  database "PostgreSQL" as DB
+  queue "Redis" as Redis
+}
+
+User --> UC_EditCV
+User --> UC_Theme
+User --> UC_GenPDF
+User --> UC_Status
+User --> UC_Download
+User --> UC_Swagger
+User --> UC_Form
+UC_Form .> UC_EditCV : proxy /api
+UC_FrontStatus .> UC_Status : proxy /api
+UC_FrontDownload .> UC_Download : proxy /api
+
+UC_GenPDF .> Redis : publier la tâche
+Redis .> UC_Compile : distribuer la tâche
+UC_Compile .> UC_UpdateStatus : <<include>>
+UC_EditCV .> DB : enregistrer la demande
+UC_UpdateStatus .> DB : READY / FAILED
+UC_Status .> DB : lire le statut
+UC_Download .> DB : vérifier le fichier
+
+Admin --> UC_ListUsers
+Admin --> UC_Metrics
+UC_ListUsers .> DB : lire les utilisateurs
+
+@enduml
